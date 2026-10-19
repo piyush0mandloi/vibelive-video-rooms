@@ -96,7 +96,7 @@ export default function VibeLive() {
 
     loadJitsiScript()
       .then(() => {
-        if (cancelled || !containerRef.current) return;
+        if (cancelled || !containerRef.current || apiRef.current) return;
         const api = new window.JitsiMeetExternalAPI(JITSI_DOMAIN, {
           roomName: activeRoom,
           parentNode: containerRef.current,
@@ -108,6 +108,12 @@ export default function VibeLive() {
         apiRef.current = api;
         api.addListener("videoConferenceJoined", () => setStatus("joined"));
         api.addListener("readyToClose", () => leave());
+        api.addListener("errorOccurred", (e) => {
+          if (e?.error === "conference.connectionError" || e?.error === "connection.passwordRequired") {
+            setStatus("error");
+            setError("This room could not be joined. The public meet.jit.si service may require a moderator for this room.");
+          }
+        });
         // Iframe loaded: hide our spinner (Jitsi shows its own pre-join)
         setTimeout(() => !cancelled && setStatus((s) => (s === "loading" ? "joined" : s)), 2500);
       })
