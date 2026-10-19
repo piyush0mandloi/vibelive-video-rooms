@@ -42,8 +42,12 @@ function randomRoom() {
   return `VibeLive-${w1}-${w2}-${id}`;
 }
 
-function roomLink(room) {
-  return `${window.location.origin}${window.location.pathname}?room=${encodeURIComponent(room)}`;
+function roomLink(room, displayName) {
+  const params = new URLSearchParams();
+  params.set("room", room);
+  const n = String(displayName || "").trim();
+  if (n) params.set("name", n);
+  return `${window.location.origin}${window.location.pathname}?${params.toString()}`;
 }
 
 export default function VibeLive() {
@@ -56,10 +60,18 @@ export default function VibeLive() {
   const containerRef = useRef(null);
   const apiRef = useRef(null);
 
-  // Prefill room from shared link
+  const [fromLink, setFromLink] = useState(false);
+
+  // Prefill room (and display name) from a shared link; never generate a new room
   useEffect(() => {
-    const r = new URLSearchParams(window.location.search).get("room");
-    if (r) setRoomInput(sanitizeRoom(r));
+    const params = new URLSearchParams(window.location.search);
+    const r = params.get("room");
+    if (r) {
+      setRoomInput(sanitizeRoom(r));
+      setFromLink(true);
+    }
+    const n = params.get("name");
+    if (n) setName(n.slice(0, 40));
   }, []);
 
   function disposeApi() {
