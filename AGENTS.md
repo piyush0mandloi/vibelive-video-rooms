@@ -11,3 +11,5 @@
 
 - Keep video calling in a browser-effect-driven LiveKit client module; obtain development credentials with the SDK TokenSource so API secrets never enter the app.
 - Keep the existing TanStack shell and write feature modules in JavaScript to preserve the platform bootstrap without rebuilding the project.
+- Keep guest video rooms public and account pages under the client-only authenticated layout; every profile server function also validates the bearer independently so UI guards cannot be bypassed.
+- Use one root auth subscriber and Supabase-owned sessions; profiles use owner-only RLS and signup triggers, while logout cancels and clears account queries before ending the session to prevent stale private data.
