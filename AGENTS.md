@@ -8,3 +8,6 @@
 > Commits you push to the connected branch sync back to Lovable and show up in
 > the editor, so keep the branch in a working state.
 <!-- LOVABLE:END -->
+
+- Keep video calling in a browser-effect-driven LiveKit client module; obtain development credentials with the SDK TokenSource so API secrets never enter the app.
+- Keep the existing TanStack shell and write feature modules in JavaScript to preserve the platform bootstrap without rebuilding the project.
