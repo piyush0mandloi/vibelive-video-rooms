@@ -231,10 +231,18 @@ export default function VibeLive() {
 
         {error && <p className="text-sm text-destructive">{error}</p>}
 
-        <button type="submit" className="btn-primary w-full py-3 text-base">Start Video Call</button>
+        <button type="submit" className="btn-primary w-full py-3 text-base">
+          {fromLink ? "Join Existing Room" : "Start Video Call"}
+        </button>
         <button type="button" onClick={copyLink} disabled={!sanitizeRoom(roomInput)} className="btn-ghost w-full disabled:opacity-40">
           {copied ? "Link copied!" : "Copy room link"}
         </button>
+        {manualLink && (
+          <label className="block space-y-2">
+            <span className="text-xs text-muted-foreground">Copy this link manually:</span>
+            <input readOnly value={manualLink} onFocus={(e) => e.target.select()} className="field w-full text-xs" />
+          </label>
+        )}
         <p className="text-center text-xs text-muted-foreground">Powered by the public meet.jit.si service.</p>
       </form>
     </main>
