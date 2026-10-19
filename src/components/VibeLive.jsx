@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import LiveKitCall from "./LiveKitCall";
 import { Button } from "./ui/button";
+import { Link } from "@tanstack/react-router";
+import { useAccountAuth } from "./AccountAuth";
 
 export function sanitizeRoom(value) {
   return String(value || "")
@@ -30,6 +32,7 @@ function roomLink(room, displayName) {
 }
 
 export default function VibeLive() {
+  const { user, loading } = useAccountAuth();
   const [roomInput, setRoomInput] = useState("");
   const [name, setName] = useState("");
   const [activeRoom, setActiveRoom] = useState(null);
@@ -143,6 +146,9 @@ export default function VibeLive() {
         </Button>
         <Button type="button" onClick={copyLink} disabled={!sanitizeRoom(roomInput)} className="btn-ghost w-full disabled:opacity-40">
           {copied ? "Link copied!" : "Copy room link"}
+        </Button>
+        <Button asChild variant="link" className="w-full" disabled={loading}>
+          <Link to={user ? "/account" : "/auth"}>{loading ? "Checking session…" : user ? "My account" : "Sign in / Create account"}</Link>
         </Button>
         {manualLink && (
           <label className="block space-y-2">
