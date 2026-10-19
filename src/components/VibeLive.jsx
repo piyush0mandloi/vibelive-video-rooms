@@ -42,8 +42,12 @@ function randomRoom() {
   return `VibeLive-${w1}-${w2}-${id}`;
 }
 
-function roomLink(room) {
-  return `${window.location.origin}${window.location.pathname}?room=${encodeURIComponent(room)}`;
+function roomLink(room, displayName) {
+  const params = new URLSearchParams();
+  params.set("room", room);
+  const n = String(displayName || "").trim();
+  if (n) params.set("name", n);
+  return `${window.location.origin}${window.location.pathname}?${params.toString()}`;
 }
 
 export default function VibeLive() {
@@ -56,10 +60,18 @@ export default function VibeLive() {
   const containerRef = useRef(null);
   const apiRef = useRef(null);
 
-  // Prefill room from shared link
+  const [fromLink, setFromLink] = useState(false);
+
+  // Prefill room (and display name) from a shared link; never generate a new room
   useEffect(() => {
-    const r = new URLSearchParams(window.location.search).get("room");
-    if (r) setRoomInput(sanitizeRoom(r));
+    const params = new URLSearchParams(window.location.search);
+    const r = params.get("room");
+    if (r) {
+      setRoomInput(sanitizeRoom(r));
+      setFromLink(true);
+    }
+    const n = params.get("name");
+    if (n) setName(n.slice(0, 40));
   }, []);
 
   function disposeApi() {
@@ -84,7 +96,7 @@ export default function VibeLive() {
 
     loadJitsiScript()
       .then(() => {
-        if (cancelled || !containerRef.current) return;
+        if (cancelled || !containerRef.current || apiRef.current) return;
         const api = new window.JitsiMeetExternalAPI(JITSI_DOMAIN, {
           roomName: activeRoom,
           parentNode: containerRef.current,
@@ -96,6 +108,12 @@ export default function VibeLive() {
         apiRef.current = api;
         api.addListener("videoConferenceJoined", () => setStatus("joined"));
         api.addListener("readyToClose", () => leave());
+        api.addListener("errorOccurred", (e) => {
+          if (e?.error === "conference.connectionError" || e?.error === "connection.passwordRequired") {
+            setStatus("error");
+            setError("This room could not be joined. The public meet.jit.si service may require a moderator for this room.");
+          }
+        });
         // Iframe loaded: hide our spinner (Jitsi shows its own pre-join)
         setTimeout(() => !cancelled && setStatus((s) => (s === "loading" ? "joined" : s)), 2500);
       })
@@ -118,7 +136,10 @@ export default function VibeLive() {
     if (!clean) return setError("Please enter a room name or generate one.");
     if (!name.trim()) return setError("Please enter your display name.");
     setRoomInput(clean);
-    window.history.replaceState(null, "", `?room=${encodeURIComponent(clean)}`);
+    const params = new URLSearchParams();
+    params.set("room", clean);
+    params.set("name", name.trim());
+    window.history.replaceState(null, "", `?${params.toString()}`);
     setActiveRoom(clean);
   }
 
@@ -128,15 +149,20 @@ export default function VibeLive() {
     setStatus("idle");
   }
 
+  const [manualLink, setManualLink] = useState("");
+
   async function copyLink() {
     const room = activeRoom || sanitizeRoom(roomInput);
     if (!room) return;
+    const link = roomLink(room, name);
     try {
-      await navigator.clipboard.writeText(roomLink(room));
+      await navigator.clipboard.writeText(link);
       setCopied(true);
+      setManualLink("");
       setTimeout(() => setCopied(false), 1800);
     } catch {
-      window.prompt("Copy this link:", roomLink(room));
+      // Clipboard blocked: show the link in a selectable field instead
+      setManualLink(link);
     }
   }
 
@@ -205,10 +231,18 @@ export default function VibeLive() {
 
         {error && <p className="text-sm text-destructive">{error}</p>}
 
-        <button type="submit" className="btn-primary w-full py-3 text-base">Start Video Call</button>
+        <button type="submit" className="btn-primary w-full py-3 text-base">
+          {fromLink ? "Join Existing Room" : "Start Video Call"}
+        </button>
         <button type="button" onClick={copyLink} disabled={!sanitizeRoom(roomInput)} className="btn-ghost w-full disabled:opacity-40">
           {copied ? "Link copied!" : "Copy room link"}
         </button>
+        {manualLink && (
+          <label className="block space-y-2">
+            <span className="text-xs text-muted-foreground">Copy this link manually:</span>
+            <input readOnly value={manualLink} onFocus={(e) => e.target.select()} className="field w-full text-xs" />
+          </label>
+        )}
         <p className="text-center text-xs text-muted-foreground">Powered by the public meet.jit.si service.</p>
       </form>
     </main>
