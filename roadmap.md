@@ -4,6 +4,7 @@
 - [x] Test room selection and real two-participant flow; report setup and limitations.
 
 # Supabase accounts
-- [ ] Add signup/login, persistent sessions, and a protected account home with profiles and logout.
-- [ ] Preserve guest video rooms and test authentication, account access, refresh, and logout.
-- [ ] Report email-confirmation setup and a short two-account checklist.
+- [x] Add signup/login, persistent sessions, and a protected account home with profiles and logout.
+- [x] Preserve guest rooms; browser-check signed-out protection and refresh, and run account and LiveKit regression tests.
+- [x] Confirm hosted email settings and provide email-confirmation setup and a short two-account checklist.
+- [ ] Verify signed-in refresh, profile saving, and logout against real accounts: blocked because managed authenticated checks are unavailable for this external Supabase connection.
