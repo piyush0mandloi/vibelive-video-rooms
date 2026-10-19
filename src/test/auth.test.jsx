@@ -9,6 +9,7 @@ vi.mock("@/integrations/supabase/client", () => ({ supabase: { auth: {
   signUp: mocks.signUp, signInWithPassword: mocks.signIn, signOut: mocks.signOut, getUser: mocks.getUser,
 } } }));
 vi.mock("@tanstack/react-router", () => ({
+  Outlet: () => null,
   Link: ({ children }) => <a>{children}</a>, useNavigate: () => mocks.navigate,
   createFileRoute: () => (options) => ({ options }), redirect: (options) => ({ redirect: options.to }),
 }));
