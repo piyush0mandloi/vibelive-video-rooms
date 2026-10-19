@@ -1,27 +1,6 @@
-import { useEffect, useRef, useState } from "react";
-
-const JITSI_DOMAIN = "meet.jit.si";
-const SCRIPT_SRC = "https://meet.jit.si/external_api.js";
-
-let scriptPromise = null;
-function loadJitsiScript() {
-  if (typeof window === "undefined") return Promise.reject(new Error("No browser"));
-  if (window.JitsiMeetExternalAPI) return Promise.resolve();
-  if (scriptPromise) return scriptPromise;
-  scriptPromise = new Promise((resolve, reject) => {
-    const s = document.createElement("script");
-    s.src = SCRIPT_SRC;
-    s.async = true;
-    s.onload = () => (window.JitsiMeetExternalAPI ? resolve() : reject(new Error("Jitsi API unavailable")));
-    s.onerror = () => {
-      scriptPromise = null;
-      s.remove();
-      reject(new Error("Could not load the Jitsi Meet script. Check your connection or ad blocker."));
-    };
-    document.body.appendChild(s);
-  });
-  return scriptPromise;
-}
+import { useEffect, useState } from "react";
+import LiveKitCall from "./LiveKitCall";
+import { Button } from "./ui/button";
 
 export function sanitizeRoom(value) {
   return String(value || "")
@@ -54,11 +33,8 @@ export default function VibeLive() {
   const [roomInput, setRoomInput] = useState("");
   const [name, setName] = useState("");
   const [activeRoom, setActiveRoom] = useState(null);
-  const [status, setStatus] = useState("idle"); // idle | loading | joined | error
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
-  const containerRef = useRef(null);
-  const apiRef = useRef(null);
 
   const [fromLink, setFromLink] = useState(false);
 
@@ -74,62 +50,6 @@ export default function VibeLive() {
     if (n) setName(n.slice(0, 40));
   }, []);
 
-  function disposeApi() {
-    const api = apiRef.current;
-    if (api) {
-      try {
-        api.removeAllListeners?.();
-        api.dispose();
-      } catch (e) {
-        /* ignore */
-      }
-      apiRef.current = null;
-    }
-  }
-
-  // Initialize Jitsi once the room is set and container is mounted
-  useEffect(() => {
-    if (!activeRoom) return;
-    let cancelled = false;
-    setStatus("loading");
-    setError("");
-
-    loadJitsiScript()
-      .then(() => {
-        if (cancelled || !containerRef.current || apiRef.current) return;
-        const api = new window.JitsiMeetExternalAPI(JITSI_DOMAIN, {
-          roomName: activeRoom,
-          parentNode: containerRef.current,
-          width: "100%",
-          height: "100%",
-          userInfo: { displayName: name.trim() },
-          configOverwrite: { prejoinPageEnabled: true },
-        });
-        apiRef.current = api;
-        api.addListener("videoConferenceJoined", () => setStatus("joined"));
-        api.addListener("readyToClose", () => leave());
-        api.addListener("errorOccurred", (e) => {
-          if (e?.error === "conference.connectionError" || e?.error === "connection.passwordRequired") {
-            setStatus("error");
-            setError("This room could not be joined. The public meet.jit.si service may require a moderator for this room.");
-          }
-        });
-        // Iframe loaded: hide our spinner (Jitsi shows its own pre-join)
-        setTimeout(() => !cancelled && setStatus((s) => (s === "loading" ? "joined" : s)), 2500);
-      })
-      .catch((e) => {
-        if (cancelled) return;
-        setStatus("error");
-        setError(e.message || "Failed to start the call.");
-      });
-
-    return () => {
-      cancelled = true;
-      disposeApi();
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeRoom]);
-
   function start(e) {
     e.preventDefault();
     const clean = sanitizeRoom(roomInput);
@@ -144,9 +64,7 @@ export default function VibeLive() {
   }
 
   function leave() {
-    disposeApi();
     setActiveRoom(null);
-    setStatus("idle");
   }
 
   const [manualLink, setManualLink] = useState("");
@@ -174,23 +92,12 @@ export default function VibeLive() {
           <span className="min-w-0 flex-1 truncate rounded-full bg-secondary px-3 py-1 text-xs text-muted-foreground">
             {activeRoom}
           </span>
-          <button onClick={copyLink} className="btn-ghost">{copied ? "Copied!" : "Copy link"}</button>
-          <button onClick={leave} className="btn-danger">Leave Call</button>
+          <Button onClick={copyLink} className="btn-ghost">{copied ? "Copied!" : "Copy link"}</Button>
+          <Button onClick={leave} className="btn-danger">Leave Call</Button>
+          {manualLink && <input aria-label="Room link" readOnly value={manualLink} onFocus={(e) => e.target.select()} className="field w-full text-xs" />}
         </header>
         <div className="relative flex-1 p-2 sm:p-4">
-          <div ref={containerRef} className="h-[calc(100dvh-90px)] min-h-[480px] w-full overflow-hidden rounded-2xl border border-border bg-card" />
-          {status === "loading" && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-muted-foreground">
-              <div className="h-10 w-10 animate-spin rounded-full border-4 border-secondary border-t-primary" />
-              Connecting to meeting…
-            </div>
-          )}
-          {status === "error" && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 p-6 text-center">
-              <p className="text-destructive">{error}</p>
-              <button onClick={leave} className="btn-primary">Back</button>
-            </div>
-          )}
+          <LiveKitCall roomName={activeRoom} displayName={name.trim()} />
         </div>
       </main>
     );
@@ -215,9 +122,9 @@ export default function VibeLive() {
               placeholder="e.g. team-standup-x7k2"
               className="field flex-1"
             />
-            <button type="button" onClick={() => setRoomInput(randomRoom())} className="btn-ghost shrink-0">
+            <Button type="button" onClick={() => setRoomInput(randomRoom())} className="btn-ghost shrink-0">
               Random
-            </button>
+            </Button>
           </div>
           {roomInput && roomInput !== sanitizeRoom(roomInput) && (
             <span className="text-xs text-muted-foreground">Will be used as: {sanitizeRoom(roomInput)}</span>
@@ -231,19 +138,19 @@ export default function VibeLive() {
 
         {error && <p className="text-sm text-destructive">{error}</p>}
 
-        <button type="submit" className="btn-primary w-full py-3 text-base">
+        <Button type="submit" className="btn-primary w-full py-3 text-base">
           {fromLink ? "Join Existing Room" : "Start Video Call"}
-        </button>
-        <button type="button" onClick={copyLink} disabled={!sanitizeRoom(roomInput)} className="btn-ghost w-full disabled:opacity-40">
+        </Button>
+        <Button type="button" onClick={copyLink} disabled={!sanitizeRoom(roomInput)} className="btn-ghost w-full disabled:opacity-40">
           {copied ? "Link copied!" : "Copy room link"}
-        </button>
+        </Button>
         {manualLink && (
           <label className="block space-y-2">
             <span className="text-xs text-muted-foreground">Copy this link manually:</span>
             <input readOnly value={manualLink} onFocus={(e) => e.target.select()} className="field w-full text-xs" />
           </label>
         )}
-        <p className="text-center text-xs text-muted-foreground">Powered by the public meet.jit.si service.</p>
+        <p className="text-center text-xs text-muted-foreground">LiveKit prototype only — development tokens are not secure for production.</p>
       </form>
     </main>
   );
