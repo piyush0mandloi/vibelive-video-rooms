@@ -136,7 +136,10 @@ export default function VibeLive() {
     if (!clean) return setError("Please enter a room name or generate one.");
     if (!name.trim()) return setError("Please enter your display name.");
     setRoomInput(clean);
-    window.history.replaceState(null, "", `?room=${encodeURIComponent(clean)}`);
+    const params = new URLSearchParams();
+    params.set("room", clean);
+    params.set("name", name.trim());
+    window.history.replaceState(null, "", `?${params.toString()}`);
     setActiveRoom(clean);
   }
 
@@ -146,15 +149,20 @@ export default function VibeLive() {
     setStatus("idle");
   }
 
+  const [manualLink, setManualLink] = useState("");
+
   async function copyLink() {
     const room = activeRoom || sanitizeRoom(roomInput);
     if (!room) return;
+    const link = roomLink(room, name);
     try {
-      await navigator.clipboard.writeText(roomLink(room));
+      await navigator.clipboard.writeText(link);
       setCopied(true);
+      setManualLink("");
       setTimeout(() => setCopied(false), 1800);
     } catch {
-      window.prompt("Copy this link:", roomLink(room));
+      // Clipboard blocked: show the link in a selectable field instead
+      setManualLink(link);
     }
   }
 
