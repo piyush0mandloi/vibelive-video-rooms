@@ -1,24 +1,127 @@
-# VibeLive Video Rooms
+# 🎥 VibeLive — Video Rooms
 
-Build a minimal, functional video-calling web app named VibeLive using React, plain JavaScript, Vite and Tailwind CSS. Do not use TypeScript. Create a polished, mobile-first dark UI with violet accents. The home screen should let a user enter a room name or generate a random room name, enter a display name, and click Start Video Call. Use the official Jitsi Meet IFrame API from https://meet.jit.si/external_api.js to embed a real meeting for the entered room on meet.jit.si. Load the external API script dynamically and initialize JitsiMeetExternalAPI only after the user clicks Start Video Call and the container is mounted. Use a sanitized, unique room name; do not generate a fixed shared room name for everyone. Show a clear pre-join screen, room name, loading state, error message, and Leave Call button. Include copy-room-link functionality so another user can join the same room. Clean up the Jitsi API instance and event listeners when leaving or unmounting. Make the video container responsive and tall enough for mobile devices. Use the meeting's built-in microphone, camera and hang-up controls. Do not add authentication, database, payments, fake video, or unrelated features. Do not claim calls are private or encrypted end-to-end. Keep the code simple and avoid unnecessary dependencies. After implementation, tell me how to test with two devices and any limitations of the public meet.jit.si service.
+**VibeLive** is a lightweight, mobile-friendly video-calling web application that lets users create or join rooms and communicate through real-time video and audio.
 
-This project was built with [Lovable](https://lovable.dev).
+Built with React and Vite, VibeLive provides a simple interface for starting video calls and sharing room links with other participants.
 
-## Build with Lovable
+## ✨ Features
 
-Continue developing this project in the [Lovable editor](https://lovable.dev/projects/76d5c081-0707-4830-96f8-6b527c22d0b5).
+- 📹 **Live Video Calling** — Join video meetings using an integrated video service.
+- 🚪 **Room-Based Meetings** — Create a room or join an existing room using its name.
+- 🔗 **Shareable Room Links** — Share a room link so others can join the same meeting.
+- 🎲 **Random Room Generation** — Generate unique room names for new meetings.
+- 🎤 **Audio and Video Controls** — Manage your microphone and camera during calls.
+- 📱 **Responsive UI** — Designed to work on desktop and mobile browsers.
+- 🌙 **Modern Dark Theme** — Clean interface with dark backgrounds and violet accents.
+- 🧹 **Call Cleanup** — Leave meetings and clean up the active video-call session.
 
-- **Ship faster**: describe what you want to build and Lovable handles the code.
-- **Stay in sync**: every change made in Lovable is committed straight to this repository.
-- **Full ownership**: this code is yours. Push to `main` on GitHub and your changes sync back into Lovable, ready for your next prompt.
+## 🛠️ Tech Stack
 
-## Development
+| Technology | Purpose |
+|---|---|
+| React | UI components and application logic |
+| JavaScript | Application functionality |
+| Vite | Development server and build tooling |
+| Tailwind CSS | Styling and responsive layouts |
+| Video SDK / Service | Real-time video and audio communication |
 
-Prefer working locally? You need Node.js and npm — [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating).
+## 🚀 Getting Started
 
-```sh
-git clone <this-repository-url>
+### Prerequisites
+
+Install the following before running the project:
+
+- [Node.js](https://nodejs.org/) — preferably a current LTS version
+- npm — included with Node.js
+- [Git](https://git-scm.com/) — for cloning the repository
+
+### 1. Clone the repository
+
+```bash
+git clone <your-repository-url>
+```
+
+### 2. Navigate to the project directory
+
+```bash
 cd <repository-name>
-npm i
+```
+
+Replace `<repository-name>` with your actual project folder name.
+
+### 3. Install dependencies
+
+```bash
+npm install
+```
+
+### 4. Start the development server
+
+```bash
 npm run dev
 ```
+
+Open the local URL shown in your terminal, usually:
+
+```text
+http://localhost:5173
+```
+
+## 📞 How to Use VibeLive
+
+1. Open the application.
+2. Enter a display name.
+3. Enter a room name or generate a random one.
+4. Start the video call.
+5. Copy and share the room link with another participant.
+6. Open the shared link on another device and join the same room.
+7. Use the available microphone and camera controls during the call.
+8. Leave the meeting when finished.
+
+For the best testing experience, use two devices or two separate browser sessions and allow camera and microphone permissions.
+
+## 🧪 Testing
+
+Verify the following before deploying:
+
+- The application starts without errors.
+- Users can create or select a room.
+- Shared links preserve the intended room name.
+- Two participants can join the same room.
+- Video and audio work in both directions.
+- Microphone, camera, and leave-call controls work correctly.
+- The layout works on mobile and desktop screens.
+
+## 🌐 Deployment
+
+VibeLive can be deployed to a compatible web-hosting platform, such as:
+
+- [Lovable](https://lovable.dev/)
+- [Vercel](https://vercel.com/)
+- [Netlify](https://www.netlify.com/)
+
+After deployment, test the published URL on real devices. Camera and microphone access generally requires a secure HTTPS context, except for certain local development origins.
+
+## ⚠️ Limitations and Security
+
+- Video-call availability depends on the configured video service.
+- Public video services may impose meeting, moderation, or usage restrictions.
+- A shared room name is not authentication and should not be treated as a security boundary.
+- Do not share private API credentials in frontend code or commit secrets to GitHub.
+- The app should not be considered production-ready for private or sensitive conversations without appropriate access controls, abuse prevention, and a reviewed security design.
+
+## 🧑‍💻 Built with Lovable
+
+This project was initially created using [Lovable](https://lovable.dev/).
+
+Continue editing it in the [VibeLive Lovable project](https://lovable.dev/projects/76d5c081-0707-4830-96f8-6b527c22d0b5).
+
+Changes made in Lovable are synchronized with the connected GitHub repository according to its integration settings. You can also clone the repository, edit the code locally, and push your changes to the configured branch.
+
+## 📄 License
+
+Choose and add an appropriate open-source license before distributing this project publicly. Until then, all rights remain with the copyright holder.
+
+---
+
+**VibeLive — Simple rooms. Real conversations.** 💜
