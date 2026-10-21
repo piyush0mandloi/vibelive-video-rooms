@@ -195,6 +195,7 @@ function Chat({ conversationId, onBack }) {
   const [otherReadAt, setOtherReadAt] = useState(null);
   const scrollRef = useRef(null);
   const stickToBottom = useRef(true);
+  const meRef = useRef(null);
 
   const info = useQuery({
     queryKey: ["conversation", conversationId],
@@ -213,9 +214,9 @@ function Chat({ conversationId, onBack }) {
   const loadLatest = useCallback(async () => {
     try {
       const res = await getMessages({ data: { conversationId } });
-      setMe(res.me);
+      setMe(res.me); meRef.current = res.me;
       setMessages((cur) => mergeMessages(cur, res.messages));
-      setHasMore((h) => (cur => cur)(h) || res.hasMore);
+      setHasMore((h) => h || res.hasMore);
       setError("");
       read();
     } catch (err) {
@@ -240,7 +241,7 @@ function Chat({ conversationId, onBack }) {
       .on("postgres_changes",
         { event: "UPDATE", schema: "public", table: "conversation_members", filter: `conversation_id=eq.${conversationId}` },
         (payload) => {
-          if (payload.new.user_id !== me) setOtherReadAt(payload.new.last_read_at);
+          if (meRef.current && payload.new.user_id !== meRef.current) setOtherReadAt(payload.new.last_read_at);
         })
       .subscribe((status) => { if (status === "SUBSCRIBED") loadLatest(); });
     loadLatest();
