@@ -35,12 +35,46 @@ export type Database = {
         }
         Relationships: []
       }
+      rooms: {
+        Row: {
+          created_at: string
+          created_by: string
+          ended_at: string | null
+          id: string
+          room_name: string
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          ended_at?: string | null
+          id?: string
+          room_name: string
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          ended_at?: string | null
+          id?: string
+          room_name?: string
+          status?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_joinable_room: {
+        Args: { _room_id: string }
+        Returns: {
+          id: string
+          room_name: string
+          status: string
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never
