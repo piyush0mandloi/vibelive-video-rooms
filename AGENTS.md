@@ -13,3 +13,5 @@
 - Keep the existing TanStack shell and write feature modules in JavaScript to preserve the platform bootstrap without rebuilding the project.
 - Keep guest video rooms public and account pages under the client-only authenticated layout; every profile server function also validates the bearer independently so UI guards cannot be bypassed.
 - Use one root auth subscriber and Supabase-owned sessions; profiles use owner-only RLS and signup triggers, while logout cancels and clears account queries before ending the session to prevent stale private data.
+- Messaging writes go through authenticated server functions (src/lib/messaging.functions.js); chat creation, search, inbox and mark-read are SECURITY DEFINER RPCs that check auth.uid(), while table RLS limits reads/sends to members — keeps one enforcement point in the database.
+- Realtime uses Postgres Changes on messages/conversation_members (RLS-filtered); every (re)subscribe refetches and merges by id so reconnects never lose or duplicate messages.
