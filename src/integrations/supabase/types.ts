@@ -14,6 +14,131 @@ export type Database = {
   }
   public: {
     Tables: {
+      conversation_members: {
+        Row: {
+          conversation_id: string
+          joined_at: string
+          last_read_at: string
+          user_id: string
+        }
+        Insert: {
+          conversation_id: string
+          joined_at?: string
+          last_read_at?: string
+          user_id: string
+        }
+        Update: {
+          conversation_id?: string
+          joined_at?: string
+          last_read_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversation_members_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conversation_members_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      conversations: {
+        Row: {
+          created_at: string
+          created_by: string
+          direct_key: string | null
+          id: string
+          last_message_at: string | null
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          direct_key?: string | null
+          id?: string
+          last_message_at?: string | null
+          type?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          direct_key?: string | null
+          id?: string
+          last_message_at?: string | null
+          type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversations_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      messages: {
+        Row: {
+          content: string
+          conversation_id: string
+          created_at: string
+          deleted_at: string | null
+          edited_at: string | null
+          id: string
+          message_type: string
+          metadata: Json
+          sender_id: string
+        }
+        Insert: {
+          content: string
+          conversation_id: string
+          created_at?: string
+          deleted_at?: string | null
+          edited_at?: string | null
+          id?: string
+          message_type?: string
+          metadata?: Json
+          sender_id?: string
+        }
+        Update: {
+          content?: string
+          conversation_id?: string
+          created_at?: string
+          deleted_at?: string | null
+          edited_at?: string | null
+          id?: string
+          message_type?: string
+          metadata?: Json
+          sender_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "messages_sender_id_fkey"
+            columns: ["sender_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           created_at: string
@@ -74,6 +199,38 @@ export type Database = {
           room_name: string
           status: string
         }[]
+      }
+      is_conversation_member: {
+        Args: { _conversation_id: string }
+        Returns: boolean
+      }
+      list_conversations: {
+        Args: never
+        Returns: {
+          id: string
+          last_message: string
+          last_message_at: string
+          last_message_sender: string
+          other_display_name: string
+          other_last_read_at: string
+          other_user_id: string
+          unread_count: number
+        }[]
+      }
+      mark_conversation_read: {
+        Args: { _conversation_id: string }
+        Returns: undefined
+      }
+      search_profiles: {
+        Args: { _query: string }
+        Returns: {
+          display_name: string
+          id: string
+        }[]
+      }
+      start_direct_conversation: {
+        Args: { _other_user: string }
+        Returns: string
       }
     }
     Enums: {
