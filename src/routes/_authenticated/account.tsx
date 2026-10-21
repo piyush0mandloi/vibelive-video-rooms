@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import AccountPage, { accountOptions } from "@/components/AccountPage";
+import AccountPage, { accountOptions } from "@/features/account/AccountPage";
 
 export const Route = createFileRoute("/_authenticated/account")({
   head: () => ({ meta: [

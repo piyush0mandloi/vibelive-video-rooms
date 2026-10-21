@@ -1,12 +1,13 @@
 import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { Plus, Copy, LogOut, ArrowLeft, Trash2, Check, Video } from "lucide-react";
+import { Plus, Copy, LogOut, Trash2, Check, Video, User } from "lucide-react";
+import { motion } from "framer-motion";
 
 import LiveKitCall from "./LiveKitCall";
 import { Button } from "./ui/button";
-import { useAccountAuth } from "./AccountAuth";
-import { accountOptions } from "./AccountPage";
+import { useAccountAuth } from "../features/auth/AccountAuth";
+import { accountOptions } from "../features/account/AccountPage";
 import { createRoom, listRooms, deleteRoom } from "@/lib/room.functions";
 import { supabase } from "@/integrations/supabase/client";
 import BottomNav from "./BottomNav";
@@ -28,6 +29,17 @@ async function copyText(text) {
   } catch {
     return false;
   }
+}
+
+// "Piyush Kumar Sharma" -> "PS", "Piyush" -> "P", "" -> ""
+function getInitials(name) {
+  const parts = (name || "").trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "";
+
+  const first = [...parts[0]][0];
+  const last = parts.length > 1 ? [...parts[parts.length - 1]][0] : "";
+
+  return (first + last).toUpperCase();
 }
 
 export default function VibeLive() {
@@ -57,6 +69,7 @@ export default function VibeLive() {
   });
 
   const displayName = accountQuery.data?.displayName?.trim() || "";
+  const initials = getInitials(displayName);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -230,11 +243,7 @@ export default function VibeLive() {
     return (
       <AppShell>
         <div className="flex h-full flex-col">
-          <header className="flex shrink-0 items-center gap-3 border-b border-border px-3 py-3">
-            <Button variant="ghost" onClick={leaveRoom} aria-label="Back to rooms">
-              <ArrowLeft />
-            </Button>
-
+          <header className="flex shrink-0 items-center justify-between gap-3 border-b border-border px-3 py-3">
             <div className="min-w-0 flex-1">
               <p className="text-xs text-muted-foreground">VibeLive room</p>
               <p className="truncate text-sm font-medium">{activeRoom}</p>
@@ -246,9 +255,11 @@ export default function VibeLive() {
             </Button>
           </header>
 
-          <section className="min-h-0 flex-1 overflow-auto p-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            <LiveKitCall roomId={activeRoom} />
+          <section className="min-h-0 flex-1 overflow-hidden p-2">
+            <LiveKitCall roomId={activeRoom} onEndCall={leaveRoom} />
           </section>
+
+          <BottomNav activeTab={tab} onTabChange={handleTabChange} />
         </div>
       </AppShell>
     );
@@ -267,9 +278,18 @@ export default function VibeLive() {
             Vibe<span className="text-primary">Live</span>
           </Link>
 
-          <span className="max-w-[45%] truncate text-sm text-muted-foreground">
-            {displayName || "Your account"}
-          </span>
+          <motion.button
+            type="button"
+            whileTap={{ scale: 0.92 }}
+            onClick={() => handleTabChange("profile")}
+            aria-label="Open profile"
+            title="Profile"
+            className={`flex size-10 shrink-0 items-center justify-center rounded-full bg-primary/15 text-sm font-semibold text-primary ring-2 transition-colors ${
+              tab === "profile" ? "ring-primary" : "ring-transparent"
+            }`}
+          >
+            {initials || <User className="size-5" />}
+          </motion.button>
         </header>
 
         <section className="w-full space-y-5 px-4 py-6">

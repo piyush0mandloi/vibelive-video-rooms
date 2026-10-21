@@ -9,8 +9,8 @@ type BottomNavProps = {
 };
 
 const tabs = [
-  { id: "rooms" as const, label: "Rooms", Icon: Home },
-  { id: "profile" as const, label: "Profile", Icon: UserRound },
+  { id: "rooms" as const,Icon: Home },
+  { id: "profile" as const,Icon: UserRound },
 ];
 
 export default function BottomNav({
@@ -28,8 +28,8 @@ export default function BottomNav({
         pb-[env(safe-area-inset-bottom)]
       "
     >
-      <div className="mx-auto grid h-[68px] w-full max-w-[520px] grid-cols-2 px-5">
-        {tabs.map(({ id, label, Icon }) => {
+      <div className="mx-auto grid h-[50px] w-full max-w-[520px] grid-cols-2 px-5">
+        {tabs.map(({ id, Icon }) => {
           const active = activeTab === id;
 
           return (
@@ -61,8 +61,6 @@ export default function BottomNav({
                 strokeWidth={active ? 2.5 : 1.8}
                 aria-hidden="true"
               />
-
-              <span>{label}</span>
             </button>
           );
         })}

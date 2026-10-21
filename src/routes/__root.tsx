@@ -12,7 +12,7 @@ import { useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
-import { AccountAuthProvider } from "../components/AccountAuth";
+import { AccountAuthProvider } from "../features/auth/AccountAuth";
 
 function NotFoundComponent() {
   return (

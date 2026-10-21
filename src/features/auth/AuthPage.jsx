@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
 import { useAccountAuth } from "./AccountAuth";
-import { Button } from "./ui/button";
+import { Button } from "@/components/ui/button";
 
 export default function AuthPage() {
   const { user, loading, error: sessionError } = useAccountAuth();

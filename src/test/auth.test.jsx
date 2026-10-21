@@ -18,10 +18,10 @@ vi.mock("@tanstack/react-query", () => ({
   useSuspenseQuery: () => ({ data: { email: "account@example.com", displayName: "Member" } }),
 }));
 vi.mock("@tanstack/react-start", () => ({ useServerFn: () => mocks.save }));
-vi.mock("../components/AccountAuth", () => ({ useAccountAuth: () => ({ user: null, loading: false, error: "" }) }));
+vi.mock("../features/auth/AccountAuth", () => ({ useAccountAuth: () => ({ user: null, loading: false, error: "" }) }));
 vi.mock("@/lib/account.functions", () => ({ getAccount: vi.fn(), saveProfile: vi.fn() }));
-import AuthPage from "../components/AuthPage";
-import AccountPage from "../components/AccountPage";
+import AuthPage from "../features/auth/AuthPage";
+import AccountPage from "../features/account/AccountPage";
 import { Route } from "../routes/_authenticated/route";
 
 beforeEach(() => { cleanup(); vi.clearAllMocks(); });
