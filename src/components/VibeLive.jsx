@@ -1,163 +1,502 @@
 import { useEffect, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Link } from "@tanstack/react-router";
+import { Plus, Copy, LogOut, ArrowLeft, Trash2, Check, Video } from "lucide-react";
+
 import LiveKitCall from "./LiveKitCall";
 import { Button } from "./ui/button";
-import { Link } from "@tanstack/react-router";
 import { useAccountAuth } from "./AccountAuth";
+import { accountOptions } from "./AccountPage";
+import { createRoom, listRooms, deleteRoom } from "@/lib/room.functions";
+import { supabase } from "@/integrations/supabase/client";
+import BottomNav from "./BottomNav";
 
-export function sanitizeRoom(value) {
-  return String(value || "")
-    .trim()
-    .replace(/[^a-zA-Z0-9-_]+/g, "-")
-    .replace(/-+/g, "-")
-    .replace(/^-|-$/g, "")
-    .slice(0, 64);
+function AppShell({ children }) {
+  return (
+    <div className="flex min-h-[100dvh] items-center justify-center bg-neutral-900 sm:p-4">
+      <div className="relative h-[100dvh] w-full max-w-[390px] transform-gpu overflow-hidden bg-background text-foreground sm:h-[min(calc(100dvh-2rem),844px)] sm:rounded-[2.5rem] sm:border sm:border-white/10 sm:shadow-2xl">
+        {children}
+      </div>
+    </div>
+  );
 }
 
-const WORDS = ["violet", "nebula", "echo", "pulse", "orbit", "ember", "drift", "lumen", "aurora", "comet"];
-function randomRoom() {
-  const bytes = new Uint32Array(2);
-  crypto.getRandomValues(bytes);
-  const w1 = WORDS[bytes[0] % WORDS.length];
-  const w2 = WORDS[bytes[1] % WORDS.length];
-  const id = Array.from(crypto.getRandomValues(new Uint8Array(5)), (b) => b.toString(36).padStart(2, "0")).join("").slice(0, 8);
-  return `VibeLive-${w1}-${w2}-${id}`;
-}
-
-function roomLink(room, displayName) {
-  const params = new URLSearchParams();
-  params.set("room", room);
-  const n = String(displayName || "").trim();
-  if (n) params.set("name", n);
-  return `${window.location.origin}${window.location.pathname}?${params.toString()}`;
+async function copyText(text) {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export default function VibeLive() {
   const { user, loading } = useAccountAuth();
-  const [roomInput, setRoomInput] = useState("");
-  const [name, setName] = useState("");
+  const queryClient = useQueryClient();
+
+  const [tab, setTab] = useState("rooms");
   const [activeRoom, setActiveRoom] = useState(null);
+  const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const [createdRoomId, setCreatedRoomId] = useState(null);
   const [copied, setCopied] = useState(false);
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null);
+  const [deletingId, setDeletingId] = useState(null);
 
-  const [fromLink, setFromLink] = useState(false);
+  const accountQuery = useQuery({
+    ...accountOptions,
+    enabled: !!user,
+  });
 
-  // Prefill room (and display name) from a shared link; never generate a new room
+  const roomsQuery = useQuery({
+    queryKey: ["rooms"],
+    queryFn: () => listRooms(),
+    enabled: !!user,
+  });
+
+  const displayName = accountQuery.data?.displayName?.trim() || "";
+
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const r = params.get("room");
-    if (r) {
-      setRoomInput(sanitizeRoom(r));
-      setFromLink(true);
+    const roomId = params.get("room");
+
+    if (roomId && user && !loading) {
+      setActiveRoom(roomId);
     }
-    const n = params.get("name");
-    if (n) setName(n.slice(0, 40));
-  }, []);
+  }, [user, loading]);
 
-  function start(e) {
-    e.preventDefault();
-    const clean = sanitizeRoom(roomInput);
-    if (!clean) return setError("Please enter a room name or generate one.");
-    if (!name.trim()) return setError("Please enter your display name.");
-    setRoomInput(clean);
-    const params = new URLSearchParams();
-    params.set("room", clean);
-    params.set("name", name.trim());
-    window.history.replaceState(null, "", `?${params.toString()}`);
-    setActiveRoom(clean);
+  function resetMessages() {
+    setError("");
+    setNotice("");
+    setCreatedRoomId(null);
+    setCopied(false);
+    setConfirmDeleteId(null);
   }
 
-  function leave() {
-    setActiveRoom(null);
+  function handleTabChange(nextTab) {
+    setTab(nextTab);
+    resetMessages();
   }
 
-  const [manualLink, setManualLink] = useState("");
+  async function requireProfile() {
+    if (loading) return false;
 
-  async function copyLink() {
-    const room = activeRoom || sanitizeRoom(roomInput);
-    if (!room) return;
-    const link = roomLink(room, name);
+    if (!user) {
+      window.location.assign("/auth");
+      return false;
+    }
+
+    if (accountQuery.isLoading) {
+      setError("Loading your profile. Please try again.");
+      return false;
+    }
+
+    if (accountQuery.isError) {
+      setError("Could not load your profile. Please refresh and try again.");
+      return false;
+    }
+
+    if (!displayName) {
+      setError("Please set your display name in your account first.");
+      setTab("profile");
+      return false;
+    }
+
+    return true;
+  }
+
+  async function handleCreateRoom() {
+    resetMessages();
+
+    if (!(await requireProfile())) return;
+
+    setBusy(true);
     try {
-      await navigator.clipboard.writeText(link);
-      setCopied(true);
-      setManualLink("");
-      setTimeout(() => setCopied(false), 1800);
-    } catch {
-      // Clipboard blocked: show the link in a selectable field instead
-      setManualLink(link);
+      const room = await createRoom({ data: {} });
+
+      // Put the new room at the top of the list immediately.
+      queryClient.setQueryData(["rooms"], (old) => [
+        room,
+        ...(old ?? []).filter((r) => r.id !== room.id),
+      ]);
+
+      setCreatedRoomId(room.id);
+
+      // Background refetch to stay in sync with the database.
+      void queryClient.invalidateQueries({ queryKey: ["rooms"] });
+    } catch (err) {
+      setError(err?.message || "Could not create the room.");
+    } finally {
+      setBusy(false);
     }
+  }
+
+  async function handleCopyId(roomId) {
+    const ok = await copyText(roomId);
+    if (!ok) {
+      setNotice(`Copy this ID: ${roomId}`);
+      return;
+    }
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
+
+  async function handleDeleteRoom(roomId) {
+    setError("");
+    setNotice("");
+    setDeletingId(roomId);
+
+    try {
+      await deleteRoom({ data: { roomId } });
+      await queryClient.invalidateQueries({ queryKey: ["rooms"] });
+
+      if (createdRoomId === roomId) setCreatedRoomId(null);
+
+      const current = new URLSearchParams(window.location.search).get("room");
+      if (current === roomId) window.history.replaceState({}, "", "/");
+
+      setConfirmDeleteId(null);
+      setNotice("Room deleted permanently.");
+    } catch (err) {
+      setError(err?.message || "Could not delete the room.");
+    } finally {
+      setDeletingId(null);
+    }
+  }
+
+  async function handleJoinRoom(roomId) {
+    setError("");
+    setNotice("");
+
+    if (!(await requireProfile())) return;
+
+    setCreatedRoomId(null);
+    setCopied(false);
+    window.history.pushState({}, "", `/?room=${encodeURIComponent(roomId)}`);
+    setActiveRoom(roomId);
+  }
+
+  function leaveRoom() {
+    setActiveRoom(null);
+    window.history.pushState({}, "", "/");
+  }
+
+  async function shareRoom(roomId) {
+    const link = `${window.location.origin}/?room=${encodeURIComponent(roomId)}`;
+
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: "Join my VibeLive room",
+          url: link,
+        });
+      } else {
+        await navigator.clipboard.writeText(link);
+        setNotice("Room link copied!");
+      }
+    } catch (err) {
+      if (err?.name !== "AbortError") {
+        setNotice(`Copy this link: ${link}`);
+      }
+    }
+  }
+
+  async function logout() {
+    setError("");
+    const { error: signOutError } = await supabase.auth.signOut();
+
+    if (signOutError) {
+      setError("Could not log out. Please try again.");
+      return;
+    }
+
+    queryClient.clear();
+    window.location.assign("/auth");
+  }
+
+  if (loading) {
+    return (
+      <AppShell>
+        <div className="flex h-full items-center justify-center text-muted-foreground">
+          Checking your account…
+        </div>
+      </AppShell>
+    );
   }
 
   if (activeRoom) {
     return (
-      <main className="flex min-h-[100dvh] flex-col bg-background">
-        <header className="flex flex-wrap items-center gap-2 border-b border-border px-4 py-3">
-          <span className="font-display text-lg font-bold text-primary">VibeLive</span>
-          <span className="min-w-0 flex-1 truncate rounded-full bg-secondary px-3 py-1 text-xs text-muted-foreground">
-            {activeRoom}
-          </span>
-          <Button onClick={copyLink} className="btn-ghost">{copied ? "Copied!" : "Copy link"}</Button>
-          <Button onClick={leave} className="btn-danger">Leave Call</Button>
-          {manualLink && <input aria-label="Room link" readOnly value={manualLink} onFocus={(e) => e.target.select()} className="field w-full text-xs" />}
-        </header>
-        <div className="relative flex-1 p-2 sm:p-4">
-          <LiveKitCall roomName={activeRoom} displayName={name.trim()} />
+      <AppShell>
+        <div className="flex h-full flex-col">
+          <header className="flex shrink-0 items-center gap-3 border-b border-border px-3 py-3">
+            <Button variant="ghost" onClick={leaveRoom} aria-label="Back to rooms">
+              <ArrowLeft />
+            </Button>
+
+            <div className="min-w-0 flex-1">
+              <p className="text-xs text-muted-foreground">VibeLive room</p>
+              <p className="truncate text-sm font-medium">{activeRoom}</p>
+            </div>
+
+            <Button className="btn-ghost" onClick={() => shareRoom(activeRoom)}>
+              <Copy className="mr-1 size-4" />
+              Share
+            </Button>
+          </header>
+
+          <section className="min-h-0 flex-1 overflow-auto p-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <LiveKitCall roomId={activeRoom} />
+          </section>
         </div>
-      </main>
+      </AppShell>
     );
   }
 
+  const sharedRoomId =
+    typeof window !== "undefined"
+      ? new URLSearchParams(window.location.search).get("room")
+      : null;
+
   return (
-    <main className="glow-bg flex min-h-[100dvh] items-center justify-center px-5 py-10">
-      <form onSubmit={start} className="w-full max-w-md space-y-6 rounded-3xl border border-border bg-card/80 p-6 shadow-glow backdrop-blur sm:p-8">
-        <div className="space-y-2 text-center">
-          <h1 className="font-display text-4xl font-bold tracking-tight">
+    <AppShell>
+      <div className="glow-bg h-full overflow-y-auto overscroll-contain pb-24 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <header className="sticky top-0 z-10 flex items-center justify-between border-b border-border bg-background/90 px-5 py-4 backdrop-blur">
+          <Link to="/" className="font-display text-xl font-bold">
             Vibe<span className="text-primary">Live</span>
-          </h1>
-          <p className="text-sm text-muted-foreground">Start a video call and share the link.</p>
-        </div>
+          </Link>
 
-        <label className="block space-y-2">
-          <span className="text-sm font-medium">Room name</span>
-          <div className="flex gap-2">
-            <input
-              value={roomInput}
-              onChange={(e) => setRoomInput(e.target.value)}
-              placeholder="e.g. team-standup-x7k2"
-              className="field flex-1"
-            />
-            <Button type="button" onClick={() => setRoomInput(randomRoom())} className="btn-ghost shrink-0">
-              Random
-            </Button>
-          </div>
-          {roomInput && roomInput !== sanitizeRoom(roomInput) && (
-            <span className="text-xs text-muted-foreground">Will be used as: {sanitizeRoom(roomInput)}</span>
+          <span className="max-w-[45%] truncate text-sm text-muted-foreground">
+            {displayName || "Your account"}
+          </span>
+        </header>
+
+        <section className="w-full space-y-5 px-4 py-6">
+          {tab === "rooms" ? (
+            <>
+              <div>
+                <h1 className="text-2xl font-bold">Your rooms</h1>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Create a room or join one using its shared link.
+                </p>
+              </div>
+
+              <Button
+                className="btn-primary h-12 w-full"
+                onClick={handleCreateRoom}
+                disabled={busy}
+              >
+                <Plus className="mr-2 size-5" />
+                {busy ? "Creating room…" : "Create a room"}
+              </Button>
+
+              {/* Room created: Join + Copy ID + Share */}
+              {createdRoomId && (
+                <article className="space-y-3 rounded-2xl border border-primary/40 bg-card p-4">
+                  <p className="text-sm font-medium">Room created successfully</p>
+                  <p className="break-all text-xs text-muted-foreground">
+                    ID: {createdRoomId}
+                  </p>
+
+                  <Button
+                    className="btn-primary h-11 w-full"
+                    onClick={() => handleJoinRoom(createdRoomId)}
+                  >
+                    <Video className="mr-2 size-4" />
+                    Join room
+                  </Button>
+
+                  <div className="flex gap-2">
+                    <Button
+                      className="btn-ghost flex-1"
+                      onClick={() => handleCopyId(createdRoomId)}
+                    >
+                      {copied ? (
+                        <Check className="mr-1 size-4" />
+                      ) : (
+                        <Copy className="mr-1 size-4" />
+                      )}
+                      {copied ? "Copied!" : "Copy ID"}
+                    </Button>
+                    <Button
+                      className="btn-ghost flex-1"
+                      onClick={() => shareRoom(createdRoomId)}
+                    >
+                      Share
+                    </Button>
+                  </div>
+                </article>
+              )}
+
+              {notice && (
+                <p className="break-all rounded-xl border border-border p-3 text-sm">
+                  {notice}
+                </p>
+              )}
+
+              {error && (
+                <p role="alert" className="text-sm text-destructive">
+                  {error}
+                </p>
+              )}
+
+              <div className="space-y-3">
+                <h2 className="font-semibold">Previously created rooms</h2>
+
+                {roomsQuery.isLoading && (
+                  <p className="text-sm text-muted-foreground">Loading rooms…</p>
+                )}
+
+                {roomsQuery.isError && (
+                  <p role="alert" className="text-sm text-destructive">
+                    Could not load your rooms.
+                  </p>
+                )}
+
+                {roomsQuery.data?.length === 0 && (
+                  <p className="rounded-2xl border border-border p-4 text-sm text-muted-foreground">
+                    No rooms yet. Create your first room above.
+                  </p>
+                )}
+
+                {roomsQuery.data?.map((room) => {
+                  const confirming = confirmDeleteId === room.id;
+                  const deleting = deletingId === room.id;
+                  const isNew = createdRoomId === room.id;
+
+                  return (
+                    <article
+                      key={room.id}
+                      className={`space-y-3 rounded-2xl border bg-card p-4 ${
+                        isNew ? "border-primary/50" : "border-border"
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="break-all text-sm font-medium">{room.id}</p>
+                        {isNew && (
+                          <span className="shrink-0 rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">
+                            New
+                          </span>
+                        )}
+                      </div>
+
+                      <p className="text-xs text-muted-foreground">
+                        Status: {room.status}
+                      </p>
+
+                      {confirming ? (
+                        <div className="space-y-2 rounded-xl border border-destructive/40 p-3">
+                          <p className="text-sm text-destructive">
+                            Delete permanently?
+                          </p>
+                          <div className="flex gap-2">
+                            <Button
+                              className="btn-danger flex-1"
+                              disabled={deleting}
+                              onClick={() => handleDeleteRoom(room.id)}
+                            >
+                              {deleting ? "Deleting…" : "Yes, delete"}
+                            </Button>
+                            <Button
+                              className="btn-ghost flex-1"
+                              disabled={deleting}
+                              onClick={() => setConfirmDeleteId(null)}
+                            >
+                              Cancel
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex gap-2">
+                          <Button
+                            className="btn-primary flex-1"
+                            disabled={room.status !== "active"}
+                            onClick={() => handleJoinRoom(room.id)}
+                          >
+                            Join room
+                          </Button>
+
+                          <Button
+                            className="btn-ghost"
+                            onClick={() => shareRoom(room.id)}
+                            aria-label="Share room"
+                          >
+                            <Copy className="size-4" />
+                          </Button>
+
+                          <Button
+                            className="btn-danger"
+                            onClick={() => setConfirmDeleteId(room.id)}
+                            aria-label="Delete room"
+                          >
+                            <Trash2 className="size-4" />
+                          </Button>
+                        </div>
+                      )}
+                    </article>
+                  );
+                })}
+              </div>
+
+              {/* Only for links opened from outside, never for a room just created */}
+              {sharedRoomId && sharedRoomId !== createdRoomId && (
+                <article className="rounded-2xl border border-primary/30 bg-card p-4">
+                  <p className="mb-2 text-sm font-medium">Shared room invitation</p>
+                  <p className="mb-3 break-all text-xs text-muted-foreground">
+                    {sharedRoomId}
+                  </p>
+                  <Button
+                    className="btn-primary w-full"
+                    onClick={() => handleJoinRoom(sharedRoomId)}
+                  >
+                    Join shared room
+                  </Button>
+                </article>
+              )}
+            </>
+          ) : (
+            <>
+              <div>
+                <h1 className="text-2xl font-bold">Your profile</h1>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Your saved account information.
+                </p>
+              </div>
+
+              {accountQuery.isLoading ? (
+                <p className="text-sm text-muted-foreground">Loading profile…</p>
+              ) : accountQuery.isError ? (
+                <p role="alert" className="text-sm text-destructive">
+                  Could not load your profile.
+                </p>
+              ) : (
+                <div className="space-y-4 rounded-2xl border border-border bg-card p-5">
+                  <div>
+                    <p className="text-xs text-muted-foreground">Display name</p>
+                    <p className="mt-1 font-semibold">
+                      {displayName || "Not set"}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Email</p>
+                    <p className="mt-1 break-all">{accountQuery.data?.email}</p>
+                  </div>
+                  <Button asChild className="btn-ghost w-full">
+                    <Link to="/account">Edit profile</Link>
+                  </Button>
+                  <Button className="btn-danger w-full" onClick={logout}>
+                    <LogOut className="mr-2 size-4" />
+                    Log out
+                  </Button>
+                </div>
+              )}
+            </>
           )}
-        </label>
+        </section>
+      </div>
 
-        <label className="block space-y-2">
-          <span className="text-sm font-medium">Display name</span>
-          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Your name" maxLength={40} className="field w-full" />
-        </label>
-
-        {error && <p className="text-sm text-destructive">{error}</p>}
-
-        <Button type="submit" className="btn-primary w-full py-3 text-base">
-          {fromLink ? "Join Existing Room" : "Start Video Call"}
-        </Button>
-        <Button type="button" onClick={copyLink} disabled={!sanitizeRoom(roomInput)} className="btn-ghost w-full disabled:opacity-40">
-          {copied ? "Link copied!" : "Copy room link"}
-        </Button>
-        <Button asChild variant="link" className="w-full" disabled={loading}>
-          <Link to={user ? "/account" : "/auth"}>{loading ? "Checking session…" : user ? "My account" : "Sign in / Create account"}</Link>
-        </Button>
-        {manualLink && (
-          <label className="block space-y-2">
-            <span className="text-xs text-muted-foreground">Copy this link manually:</span>
-            <input readOnly value={manualLink} onFocus={(e) => e.target.select()} className="field w-full text-xs" />
-          </label>
-        )}
-        <p className="text-center text-xs text-muted-foreground">LiveKit prototype only — development tokens are not secure for production.</p>
-      </form>
-    </main>
+      <BottomNav activeTab={tab} onTabChange={handleTabChange} />
+    </AppShell>
   );
 }
