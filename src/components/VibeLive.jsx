@@ -11,6 +11,8 @@ import { accountOptions } from "../features/account/AccountPage";
 import { createRoom, listRooms, deleteRoom } from "@/lib/room.functions";
 import { supabase } from "@/integrations/supabase/client";
 import BottomNav from "./BottomNav";
+import Messages, { conversationsKey, useInboxRealtime } from "../features/messaging/Messages";
+import { listConversations } from "@/lib/messaging.functions";
 
 function AppShell({ children }) {
   return (
@@ -56,6 +58,15 @@ export default function VibeLive() {
   const [copied, setCopied] = useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
   const [deletingId, setDeletingId] = useState(null);
+  const [openConversation, setOpenConversation] = useState(null);
+
+  const conversationsQuery = useQuery({
+    queryKey: conversationsKey,
+    queryFn: () => listConversations(),
+    enabled: !!user,
+  });
+  const unreadTotal = (conversationsQuery.data ?? []).reduce((n, c) => n + c.unread, 0);
+  useInboxRealtime(!!user);
 
   const accountQuery = useQuery({
     ...accountOptions,
@@ -90,6 +101,7 @@ export default function VibeLive() {
 
   function handleTabChange(nextTab) {
     setTab(nextTab);
+    setOpenConversation(null);
     resetMessages();
   }
 
@@ -225,6 +237,7 @@ export default function VibeLive() {
       return;
     }
 
+    await supabase.removeAllChannels();
     queryClient.clear();
     window.location.assign("/auth");
   }
@@ -259,8 +272,17 @@ export default function VibeLive() {
             <LiveKitCall roomId={activeRoom} onEndCall={leaveRoom} />
           </section>
 
-          <BottomNav activeTab={tab} onTabChange={handleTabChange} />
+          <BottomNav activeTab={tab} onTabChange={handleTabChange} unread={unreadTotal} />
         </div>
+      </AppShell>
+    );
+  }
+
+  if (tab === "messages" && openConversation && user) {
+    return (
+      <AppShell>
+        <Messages conversationId={openConversation} onBack={() => setOpenConversation(null)} />
+        <BottomNav activeTab={tab} onTabChange={handleTabChange} unread={unreadTotal} />
       </AppShell>
     );
   }
@@ -475,6 +497,14 @@ export default function VibeLive() {
                 </article>
               )}
             </>
+          ) : tab === "messages" ? (
+            user ? (
+              <Messages onOpen={setOpenConversation} />
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                <Link to="/auth" className="text-primary underline">Sign in</Link> to use messages.
+              </p>
+            )
           ) : (
             <>
               <div>
@@ -516,7 +546,7 @@ export default function VibeLive() {
         </section>
       </div>
 
-      <BottomNav activeTab={tab} onTabChange={handleTabChange} />
+      <BottomNav activeTab={tab} onTabChange={handleTabChange} unread={unreadTotal} />
     </AppShell>
   );
 }
