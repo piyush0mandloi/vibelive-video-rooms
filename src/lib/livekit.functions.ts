@@ -10,9 +10,9 @@ export const joinRoom = createServerFn({ method: "POST" })
     z.object({ roomId: z.string().uuid() }).parse(input)
   )
   .handler(async ({ context, data }) => {
-    const livekitUrl = process.env.LIVEKIT_URL;
-    const apiKey = process.env.LIVEKIT_API_KEY;
-    const apiSecret = process.env.LIVEKIT_API_SECRET;
+    const livekitUrl = process.env["LIVEKIT_URL"];
+    const apiKey = process.env["LIVEKIT_API_KEY"];
+    const apiSecret = process.env["LIVEKIT_API_SECRET"];
 
     if (!livekitUrl || !apiKey || !apiSecret) {
       throw new Error("LiveKit server configuration is missing.");

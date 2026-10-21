@@ -22,16 +22,23 @@ export function AccountAuthProvider({ children }) {
         if (alive && current === version) setState({ user: null, loading: false, error: "Account connection failed. Refresh to try again." });
       }
     }
-    const { data } = supabase.auth.onAuthStateChange((event) => {
-      if (event === "SIGNED_OUT") {
-        version++;
-        setState({ user: null, loading: false, error: "" });
-        void router.invalidate();
-      } else if (event === "SIGNED_IN" || event === "USER_UPDATED") {
-        // Run outside the Supabase callback to avoid locking other auth calls.
-        setTimeout(() => { if (alive) { void verify(); void router.invalidate(); void queryClient.invalidateQueries(); } }, 0);
-      }
-    });
+    let data;
+    try {
+      ({ data } = supabase.auth.onAuthStateChange((event) => {
+        if (event === "SIGNED_OUT") {
+          version++;
+          setState({ user: null, loading: false, error: "" });
+          void router.invalidate();
+        } else if (event === "SIGNED_IN" || event === "USER_UPDATED") {
+          // Run outside the Supabase callback to avoid locking other auth calls.
+          setTimeout(() => { if (alive) { void verify(); void router.invalidate(); void queryClient.invalidateQueries(); } }, 0);
+        }
+      }));
+    } catch {
+      // Accounts unavailable (e.g. missing config); keep guest video calls working.
+      setState({ user: null, loading: false, error: "Accounts are temporarily unavailable." });
+      return () => { alive = false; };
+    }
     void verify();
     return () => { alive = false; data.subscription.unsubscribe(); };
   }, [router, queryClient]);
