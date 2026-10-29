@@ -16,8 +16,8 @@ import { listConversations } from "@/lib/messaging.functions";
 
 function AppShell({ children }) {
   return (
-    <div className="flex min-h-[100dvh] items-center justify-center bg-neutral-900 sm:p-4">
-      <div className="relative h-[100dvh] w-full max-w-[390px] transform-gpu overflow-hidden bg-background text-foreground sm:h-[min(calc(100dvh-2rem),844px)] sm:rounded-[2.5rem] sm:border sm:border-white/10 sm:shadow-2xl">
+    <div className="flex min-h-screen min-h-[100dvh] w-full max-w-full items-center justify-center overflow-x-hidden bg-neutral-900 md:p-4">
+      <div className="relative box-border h-screen h-[100dvh] w-full min-w-0 max-w-full transform-gpu overflow-hidden bg-background pt-[env(safe-area-inset-top)] text-foreground md:h-[min(calc(100dvh-2rem),900px)] md:max-w-[480px] md:rounded-[2rem] md:border md:border-white/10 md:shadow-2xl">
         {children}
       </div>
     </div>
