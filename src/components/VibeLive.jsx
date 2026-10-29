@@ -230,6 +230,8 @@ export default function VibeLive() {
 
   async function logout() {
     setError("");
+    await queryClient.cancelQueries();
+    queryClient.clear();
     const { error: signOutError } = await supabase.auth.signOut();
 
     if (signOutError) {
@@ -238,8 +240,7 @@ export default function VibeLive() {
     }
 
     await supabase.removeAllChannels();
-    queryClient.clear();
-    window.location.assign("/auth");
+    // Stay on Profile; the auth context flips to signed-out and shows the prompt.
   }
 
   if (loading) {
@@ -514,7 +515,11 @@ export default function VibeLive() {
                 </p>
               </div>
 
-              {accountQuery.isLoading ? (
+              {!user ? (
+                <p className="text-sm text-muted-foreground">
+                  <Link to="/auth" className="text-primary underline">Sign in</Link> to view your profile.
+                </p>
+              ) : accountQuery.isLoading ? (
                 <p className="text-sm text-muted-foreground">Loading profile…</p>
               ) : accountQuery.isError ? (
                 <p role="alert" className="text-sm text-destructive">
