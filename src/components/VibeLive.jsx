@@ -1,8 +1,18 @@
 import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { Plus, Copy, LogOut, Trash2, Check, Video, User } from "lucide-react";
+import {  Bell,
+  ShieldCheck,
+  AlertTriangle,
+  Plus,
+  Copy,
+  LogOut,
+  Trash2,
+  Check,
+  Video,
+  User, } from "lucide-react";
 import { motion } from "framer-motion";
+import { useServerFn } from "@tanstack/react-start";
 
 import LiveKitCall from "./LiveKitCall";
 import { Button } from "./ui/button";
@@ -13,6 +23,11 @@ import { supabase } from "@/integrations/supabase/client";
 import BottomNav from "./BottomNav";
 import Messages, { conversationsKey, useInboxRealtime } from "../features/messaging/Messages";
 import { listConversations } from "@/lib/messaging.functions";
+import {
+  getAccountSettings,
+  saveAccountSettings,
+} from "@/lib/account.functions";
+
 
 function AppShell({ children }) {
   return (
@@ -60,6 +75,13 @@ export default function VibeLive() {
   const [deletingId, setDeletingId] = useState(null);
   const [openConversation, setOpenConversation] = useState(null);
 
+  const [settingsBusy, setSettingsBusy] = useState(false);
+const [deleteAccountOpen, setDeleteAccountOpen] = useState(false);
+const [deleteAccountPhrase, setDeleteAccountPhrase] = useState("");
+const [deletingAccount, setDeletingAccount] = useState(false);
+
+const saveSettings = useServerFn(saveAccountSettings);
+
   const conversationsQuery = useQuery({
     queryKey: conversationsKey,
     queryFn: () => listConversations(),
@@ -78,6 +100,12 @@ export default function VibeLive() {
     queryFn: () => listRooms(),
     enabled: !!user,
   });
+
+  const accountSettingsQuery = useQuery({
+  queryKey: ["account-settings"],
+  queryFn: () => getAccountSettings(),
+  enabled: !!user,
+});
 
   const displayName = accountQuery.data?.displayName?.trim() || "";
   const initials = getInitials(displayName);
@@ -242,6 +270,70 @@ export default function VibeLive() {
     await supabase.removeAllChannels();
     // Stay on Profile; the auth context flips to signed-out and shows the prompt.
   }
+
+  
+async function updateAccountSetting(setting, value) {
+  if (settingsBusy || !accountSettingsQuery.data) return;
+
+  setSettingsBusy(true);
+  setError("");
+  setNotice("");
+
+  try {
+    await saveSettings({
+      data: {
+        ...accountSettingsQuery.data,
+        [setting]: value,
+      },
+    });
+
+    await queryClient.invalidateQueries({
+      queryKey: ["account-settings"],
+    });
+
+    setNotice("Your preference has been saved.");
+  } catch (err) {
+    setError(err?.message || "Could not save this preference.");
+  } finally {
+    setSettingsBusy(false);
+  }
+}
+
+async function handleDeleteAccount() {
+  if (deleteAccountPhrase.trim() !== "DELETE" || deletingAccount) {
+    return;
+  }
+
+  setDeletingAccount(true);
+  setError("");
+  setNotice("");
+
+  try {
+    const { data, error: functionError } =
+      await supabase.functions.invoke("delete-account", {
+        body: { confirmation: "DELETE" },
+      });
+
+    if (functionError || !data?.success) {
+      throw new Error(
+        data?.error ||
+          functionError?.message ||
+          "Account deletion failed. Please try again."
+      );
+    }
+
+    await queryClient.cancelQueries();
+    await supabase.removeAllChannels();
+    await supabase.auth.signOut({ scope: "local" });
+    queryClient.clear();
+
+    window.location.assign("/auth");
+  } catch (err) {
+    setError(err?.message || "Could not delete your account.");
+    setDeletingAccount(false);
+  }
+}
+
 
   if (loading) {
     return (
@@ -506,86 +598,291 @@ export default function VibeLive() {
                 <Link to="/auth" className="text-primary underline">Sign in</Link> to use messages.
               </p>
             )
-          ) : (
-<>
-  <div>
-    <h1 className="text-2xl font-bold">Your profile</h1>
-  </div>
-
-  {!user ? (
-    <p className="text-sm text-muted-foreground">
-      <Link to="/auth" className="text-primary underline">
-        Sign in
-      </Link>{" "}
-      to view your profile.
-    </p>
-  ) : accountQuery.isLoading ? (
-    <p className="text-sm text-muted-foreground">
-      Loading profile…
-    </p>
-  ) : accountQuery.isError ? (
-    <p role="alert" className="text-sm text-destructive">
-      Could not load your profile.
-    </p>
-  ) : (
-    <div className="space-y-5 rounded-2xl border border-border bg-card p-5">
-      <div className="flex items-center gap-4">
-        <div className="flex size-16 shrink-0 items-center justify-center rounded-full bg-primary/15 text-xl font-bold text-primary ring-1 ring-primary/30">
-          {initials || <User className="size-6" />}
-        </div>
-
-        <div className="min-w-0 flex-1">
-          <h2 className="break-words text-lg font-semibold">
-            {displayName || "Not set"}
-          </h2>
-          <p className="break-all text-sm text-muted-foreground">
-            {accountQuery.data?.username
-              ? `@${accountQuery.data.username}`
-              : "VibeLive member"}
-          </p>
-        </div>
-      </div>
-
-      {accountQuery.data?.bio && (
-        <p className="whitespace-pre-wrap break-words text-sm">
-          {accountQuery.data.bio}
-        </p>
-      )}
-
-      {accountQuery.data?.website && (
-        <a
-          href={accountQuery.data.website}
-          target="_blank"
-          rel="noreferrer"
-          className="block break-all text-sm text-primary underline"
-        >
-          {accountQuery.data.website}
-        </a>
-      )}
-
-      <div className="space-y-1 border-t border-border pt-4">
-        <p className="text-xs text-muted-foreground">Email</p>
-        <p className="break-all text-sm">
-          {accountQuery.data?.email || "Email unavailable"}
-        </p>
-      </div>
-
-      <Button asChild className="btn-primary w-full">
-        <Link to="/account">Edit profile</Link>
-      </Button>
-
-      <Button
-        className="btn-danger w-full"
-        onClick={logout}
-      >
-        <LogOut className="mr-2 size-4" />
-        Log out
-      </Button>
+         
+) : (
+  <>
+    <div className="space-y-1">
+      <h1 className="text-2xl font-bold">Your profile</h1>
+      <p className="text-sm text-muted-foreground">
+        Manage your identity, preferences, and account.
+      </p>
     </div>
-  )}
-</>
 
+    {!user ? (
+      <p className="text-sm text-muted-foreground">
+        <Link to="/auth" className="text-primary underline">
+          Sign in
+        </Link>{" "}
+        to view your profile and settings.
+      </p>
+    ) : accountQuery.isLoading ? (
+      <p className="text-sm text-muted-foreground">Loading profile…</p>
+    ) : accountQuery.isError ? (
+      <p role="alert" className="text-sm text-destructive">
+        Could not load your profile.
+      </p>
+    ) : (
+      <>
+        {/* Profile overview */}
+        <section className="space-y-5 rounded-2xl border border-border bg-card p-5">
+          <div className="flex items-center gap-4">
+            <div className="flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary/15 text-xl font-bold text-primary ring-1 ring-primary/30">
+              {accountQuery.data?.avatarPath ? (
+                <img
+                  src={
+                    supabase.storage
+                      .from("vibelive-avatars")
+                      .getPublicUrl(accountQuery.data.avatarPath).data.publicUrl
+                  }
+                  alt="Profile"
+                  className="size-full object-cover"
+                />
+              ) : (
+                initials || <User className="size-6" />
+              )}
+            </div>
+
+            <div className="min-w-0 flex-1">
+              <h2 className="break-words text-lg font-semibold">
+                {displayName || "Not set"}
+              </h2>
+              <p className="break-all text-sm text-muted-foreground">
+                {accountQuery.data?.username
+                  ? `@${accountQuery.data.username}`
+                  : "VibeLive member"}
+              </p>
+            </div>
+          </div>
+
+          {accountQuery.data?.bio && (
+            <p className="whitespace-pre-wrap break-words text-sm">
+              {accountQuery.data.bio}
+            </p>
           )}
+
+          {accountQuery.data?.website && (
+            <a
+              href={accountQuery.data.website}
+              target="_blank"
+              rel="noreferrer"
+              className="block break-all text-sm text-primary underline"
+            >
+              {accountQuery.data.website}
+            </a>
+          )}
+
+          <div className="space-y-1 border-t border-border pt-4">
+            <p className="text-xs text-muted-foreground">Email address</p>
+            <p className="break-all text-sm">
+              {accountQuery.data?.email || "Email unavailable"}
+            </p>
+          </div>
+
+          <Button asChild className="btn-primary w-full">
+            <Link to="/account">Edit profile</Link>
+          </Button>
+        </section>
+
+        {/* Feedback */}
+        {error && (
+          <p role="alert" className="text-sm text-destructive">
+            {error}
+          </p>
+        )}
+
+        {notice && (
+          <p role="status" className="text-sm text-muted-foreground">
+            {notice}
+          </p>
+        )}
+
+        {/* Notification preferences */}
+        <section className="space-y-4 rounded-2xl border border-border bg-card p-5">
+          <div className="flex items-start gap-3">
+            <Bell className="mt-0.5 size-5 text-primary" />
+            <div className="min-w-0 flex-1">
+              <h2 className="font-semibold">Notifications</h2>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Configure your preferences. Push and email delivery
+                are not enabled yet.
+              </p>
+            </div>
+          </div>
+
+          {accountSettingsQuery.isLoading ? (
+            <p className="text-sm text-muted-foreground">
+              Loading preferences…
+            </p>
+          ) : accountSettingsQuery.isError ? (
+            <p role="alert" className="text-sm text-destructive">
+              Could not load notification preferences.
+            </p>
+          ) : accountSettingsQuery.data ? (
+            <div className="space-y-4">
+              <label className="flex cursor-pointer items-center justify-between gap-4">
+                <span>
+                  <span className="block text-sm font-medium">
+                    Private messages
+                  </span>
+                  <span className="block text-xs text-muted-foreground">
+                    Preference for new direct messages
+                  </span>
+                </span>
+
+                <input
+                  type="checkbox"
+                  className="size-5 shrink-0 accent-primary"
+                  checked={
+                    accountSettingsQuery.data.messageNotificationsEnabled
+                  }
+                  disabled={settingsBusy}
+                  onChange={(event) =>
+                    updateAccountSetting(
+                      "messageNotificationsEnabled",
+                      event.target.checked
+                    )
+                  }
+                />
+              </label>
+
+              <label className="flex cursor-pointer items-center justify-between gap-4">
+                <span>
+                  <span className="block text-sm font-medium">
+                    Room activity
+                  </span>
+                  <span className="block text-xs text-muted-foreground">
+                    Preference for room-related updates
+                  </span>
+                </span>
+
+                <input
+                  type="checkbox"
+                  className="size-5 shrink-0 accent-primary"
+                  checked={
+                    accountSettingsQuery.data.roomNotificationsEnabled
+                  }
+                  disabled={settingsBusy}
+                  onChange={(event) =>
+                    updateAccountSetting(
+                      "roomNotificationsEnabled",
+                      event.target.checked
+                    )
+                  }
+                />
+              </label>
+            </div>
+          ) : null}
+        </section>
+
+        {/* Account security */}
+        <section className="space-y-3 rounded-2xl border border-border bg-card p-5">
+          <div className="flex items-start gap-3">
+            <ShieldCheck className="mt-0.5 size-5 text-primary" />
+            <div>
+              <h2 className="font-semibold">Security & account</h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Manage your signed-in VibeLive account.
+              </p>
+            </div>
+          </div>
+
+          <Button
+            type="button"
+            className="btn-ghost w-full"
+            onClick={logout}
+          >
+            <LogOut className="mr-2 size-4" />
+            Log out
+          </Button>
+        </section>
+
+        {/* Permanent account deletion */}
+        <section className="space-y-3 rounded-2xl border border-destructive/30 bg-card p-5">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="mt-0.5 size-5 text-destructive" />
+            <div>
+              <h2 className="font-semibold">Delete account</h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Permanently delete your account, profile, rooms you own,
+                and associated messages. This cannot be undone.
+              </p>
+            </div>
+          </div>
+
+          {!deleteAccountOpen ? (
+            <Button
+              type="button"
+              className="btn-danger w-full"
+              onClick={() => {
+                setDeleteAccountPhrase("");
+                setDeleteAccountOpen(true);
+              }}
+            >
+              <Trash2 className="mr-2 size-4" />
+              Delete my account
+            </Button>
+          ) : (
+            <div
+              role="alertdialog"
+              aria-modal="true"
+              aria-labelledby="delete-account-title"
+              className="space-y-3 rounded-xl border border-destructive/40 p-4"
+            >
+              <h3 id="delete-account-title" className="font-semibold">
+                Are you absolutely sure?
+              </h3>
+
+              <p className="text-sm text-muted-foreground">
+                This permanently removes your account and associated data.
+                Type DELETE to confirm.
+              </p>
+
+              <input
+                className="field w-full"
+                value={deleteAccountPhrase}
+                onChange={(event) =>
+                  setDeleteAccountPhrase(event.target.value)
+                }
+                placeholder="Type DELETE"
+                autoComplete="off"
+                disabled={deletingAccount}
+              />
+
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  className="btn-danger min-w-0 flex-1"
+                  disabled={
+                    deletingAccount ||
+                    deleteAccountPhrase.trim() !== "DELETE"
+                  }
+                  onClick={handleDeleteAccount}
+                >
+                  {deletingAccount ? "Deleting…" : "Delete permanently"}
+                </Button>
+
+                <Button
+                  type="button"
+                  className="btn-ghost min-w-0 flex-1"
+                  disabled={deletingAccount}
+                  onClick={() => {
+                    setDeleteAccountOpen(false);
+                    setDeleteAccountPhrase("");
+                  }}
+                >
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          )}
+        </section>
+      </>
+    )}
+  </>
+)}
+
+
+          
         </section>
       </div>
 

@@ -108,3 +108,78 @@ export const saveProfile = createServerFn({ method: "POST" })
       avatarPath: data.avatarPath,
     };
   });
+
+  
+export const getAccountSettings = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { data: auth, error: authError } =
+      await context.supabase.auth.getUser();
+
+    if (authError || !auth.user) {
+      throw new Error("Please sign in again.");
+    }
+
+    const { error: initError } = await context.supabase
+      .from("account_settings")
+      .upsert(
+        { user_id: context.userId },
+        { onConflict: "user_id", ignoreDuplicates: true }
+      );
+
+    if (initError) {
+      throw new Error("Could not initialize account settings.");
+    }
+
+    const { data, error } = await context.supabase
+      .from("account_settings")
+      .select(
+        "message_notifications_enabled, room_notifications_enabled, email_notifications_enabled, profile_discoverable"
+      )
+      .eq("user_id", context.userId)
+      .single();
+
+    if (error || !data) {
+      throw new Error("Could not load account settings.");
+    }
+
+    return {
+      messageNotificationsEnabled: data.message_notifications_enabled,
+      roomNotificationsEnabled: data.room_notifications_enabled,
+      emailNotificationsEnabled: data.email_notifications_enabled,
+      profileDiscoverable: data.profile_discoverable,
+    };
+  });
+
+export const saveAccountSettings = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) =>
+    z
+      .object({
+        messageNotificationsEnabled: z.boolean(),
+        roomNotificationsEnabled: z.boolean(),
+        emailNotificationsEnabled: z.boolean(),
+        profileDiscoverable: z.boolean(),
+      })
+      .parse(input)
+  )
+  .handler(async ({ context, data }) => {
+    const { error } = await context.supabase
+      .from("account_settings")
+      .upsert(
+        {
+          user_id: context.userId,
+          message_notifications_enabled: data.messageNotificationsEnabled,
+          room_notifications_enabled: data.roomNotificationsEnabled,
+          email_notifications_enabled: data.emailNotificationsEnabled,
+          profile_discoverable: data.profileDiscoverable,
+        },
+        { onConflict: "user_id" }
+      );
+
+    if (error) {
+      throw new Error("Your account settings could not be saved.");
+    }
+
+    return data;
+  });
