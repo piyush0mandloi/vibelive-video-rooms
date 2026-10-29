@@ -507,46 +507,84 @@ export default function VibeLive() {
               </p>
             )
           ) : (
-            <>
-              <div>
-                <h1 className="text-2xl font-bold">Your profile</h1>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  Your saved account information.
-                </p>
-              </div>
+<>
+  <div>
+    <h1 className="text-2xl font-bold">Your profile</h1>
+  </div>
 
-              {!user ? (
-                <p className="text-sm text-muted-foreground">
-                  <Link to="/auth" className="text-primary underline">Sign in</Link> to view your profile.
-                </p>
-              ) : accountQuery.isLoading ? (
-                <p className="text-sm text-muted-foreground">Loading profile…</p>
-              ) : accountQuery.isError ? (
-                <p role="alert" className="text-sm text-destructive">
-                  Could not load your profile.
-                </p>
-              ) : (
-                <div className="space-y-4 rounded-2xl border border-border bg-card p-5">
-                  <div>
-                    <p className="text-xs text-muted-foreground">Display name</p>
-                    <p className="mt-1 font-semibold">
-                      {displayName || "Not set"}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">Email</p>
-                    <p className="mt-1 break-all">{accountQuery.data?.email}</p>
-                  </div>
-                  <Button asChild className="btn-ghost w-full">
-                    <Link to="/account">Edit profile</Link>
-                  </Button>
-                  <Button className="btn-danger w-full" onClick={logout}>
-                    <LogOut className="mr-2 size-4" />
-                    Log out
-                  </Button>
-                </div>
-              )}
-            </>
+  {!user ? (
+    <p className="text-sm text-muted-foreground">
+      <Link to="/auth" className="text-primary underline">
+        Sign in
+      </Link>{" "}
+      to view your profile.
+    </p>
+  ) : accountQuery.isLoading ? (
+    <p className="text-sm text-muted-foreground">
+      Loading profile…
+    </p>
+  ) : accountQuery.isError ? (
+    <p role="alert" className="text-sm text-destructive">
+      Could not load your profile.
+    </p>
+  ) : (
+    <div className="space-y-5 rounded-2xl border border-border bg-card p-5">
+      <div className="flex items-center gap-4">
+        <div className="flex size-16 shrink-0 items-center justify-center rounded-full bg-primary/15 text-xl font-bold text-primary ring-1 ring-primary/30">
+          {initials || <User className="size-6" />}
+        </div>
+
+        <div className="min-w-0 flex-1">
+          <h2 className="break-words text-lg font-semibold">
+            {displayName || "Not set"}
+          </h2>
+          <p className="break-all text-sm text-muted-foreground">
+            {accountQuery.data?.username
+              ? `@${accountQuery.data.username}`
+              : "VibeLive member"}
+          </p>
+        </div>
+      </div>
+
+      {accountQuery.data?.bio && (
+        <p className="whitespace-pre-wrap break-words text-sm">
+          {accountQuery.data.bio}
+        </p>
+      )}
+
+      {accountQuery.data?.website && (
+        <a
+          href={accountQuery.data.website}
+          target="_blank"
+          rel="noreferrer"
+          className="block break-all text-sm text-primary underline"
+        >
+          {accountQuery.data.website}
+        </a>
+      )}
+
+      <div className="space-y-1 border-t border-border pt-4">
+        <p className="text-xs text-muted-foreground">Email</p>
+        <p className="break-all text-sm">
+          {accountQuery.data?.email || "Email unavailable"}
+        </p>
+      </div>
+
+      <Button asChild className="btn-primary w-full">
+        <Link to="/account">Edit profile</Link>
+      </Button>
+
+      <Button
+        className="btn-danger w-full"
+        onClick={logout}
+      >
+        <LogOut className="mr-2 size-4" />
+        Log out
+      </Button>
+    </div>
+  )}
+</>
+
           )}
         </section>
       </div>
